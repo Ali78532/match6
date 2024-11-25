@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>توصيل كلمات</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #4e73df, #1cc88a);
+            color: #fff;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin: 0;
+            color: #f7c948;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .header p {
+            font-size: 1rem;
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+            position: relative;
+            width: 90%;
+        }
+
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .word {
+            padding: 15px 20px;
+            background-color: #fff;
+            color: #333;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .word.left-word:hover {
+            transform: scale(1.1);
+        }
+
+        .selected {
+            transform: scale(1.2);
+        }
+
+        .matched-left {
+            background-color: #2e7d32;
+            color: #fff;
+            cursor: default;
+        }
+
+        .incorrect-left {
+            background-color: #d32f2f;
+            color: #fff;
+            cursor: not-allowed;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .line {
+            stroke: #fff;
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+        }
+
+        .score {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 1rem;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>توصيل كلمات</h1>
+        <p>اختر كلمة من القائمة اليسرى ثم اختر ما يناسبها من القائمة اليمنى</p>
+    </div>
+    <div class="game-container">
+        <div class="list" id="left-list"></div>
+        <div class="list" id="right-list"></div>
+    </div>
+    <svg id="connections"></svg>
+    <div class="score" id="score-display">
+        <p>درجتك: <span id="score">0</span> </p>
+    </div>
+    <div class="footer">
+        إعداد الأستاذ: علي حسين
+    </div>
+
+    <script>
+        const pairs = [
+            { left: "cut", right: "hair" },
+            { left: "give", right: "tours" },
+            { left: "send", right: "post" },
+            { left: "put out", right: "fires" },
+            { left: "make", right: "software" }
+        ];
+
+        const leftList = document.getElementById('left-list');
+        const rightList = document.getElementById('right-list');
+        const connections = document.getElementById('connections');
+        const scoreElement = document.getElementById('score');
+        let score = 0;
+
+        let selectedWord = null;
+
+        // إنشاء عناصر صوتية
+        const correctSound = new Audio('Sounds/Correct.wav');
+        const wrongSound = new Audio('Sounds/Wrong.wav');
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        const shuffledLeft = shuffleArray([...pairs]);
+        const shuffledRight = shuffleArray([...pairs]);
+
+        shuffledLeft.forEach(pair => {
+            const word = document.createElement('div');
+            word.className = 'word left-word';
+            word.dataset.word = pair.left;
+            word.textContent = pair.left;
+            leftList.appendChild(word);
+        });
+
+        shuffledRight.forEach(pair => {
+            const word = document.createElement('div');
+            word.className = 'word right-word';
+            word.dataset.word = pair.right;
+            word.textContent = pair.right;
+            rightList.appendChild(word);
+        });
+
+        leftList.addEventListener('click', (e) => {
+            const word = e.target;
+            if (word.classList.contains('left-word') && !word.classList.contains('matched-left') && !word.classList.contains('incorrect-left')) {
+                if (selectedWord) {
+                    selectedWord.classList.remove('selected');
+                }
+                selectedWord = word;
+                word.classList.add('selected');
+            }
+        });
+
+        rightList.addEventListener('click', (e) => {
+            const word = e.target;
+            if (word.classList.contains('right-word') && selectedWord) {
+                drawLine(selectedWord, word);
+                if (checkMatch(selectedWord.dataset.word, word.dataset.word)) {
+                    selectedWord.classList.add('matched-left');
+                    selectedWord.classList.remove('selected');
+                    correctSound.play(); // تشغيل صوت الإجابة الصحيحة
+                    updateScore(2);
+                } else {
+                    selectedWord.classList.add('incorrect-left');
+                    selectedWord.classList.remove('selected');
+                    wrongSound.play(); // تشغيل صوت الإجابة الخاطئة
+                    if (navigator.vibrate) {
+                        navigator.vibrate(80); // اهتزاز عند الخطأ
+                    }
+                }
+                selectedWord = null;
+            }
+        });
+
+        function drawLine(word1, word2) {
+            const x1 = word1.getBoundingClientRect().right;
+            const y1 = word1.getBoundingClientRect().top + word1.offsetHeight / 2;
+            const x2 = word2.getBoundingClientRect().left;
+            const y2 = word2.getBoundingClientRect().top + word2.offsetHeight / 2;
+
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.classList.add('line');
+            connections.appendChild(line);
+        }
+
+        function checkMatch(left, right) {
+            return pairs.some(pair => pair.left === left && pair.right === right);
+        }
+
+        function updateScore(points) {
+            score += points;
+            scoreElement.textContent = score;
+        }
+    </script>
+</body>
+</html>
